@@ -10,7 +10,7 @@ A **Template** is a resource that describes a set of k8s/openshift objects that 
 
 | Template | Description |
 |:--------:|:-----------:|
-| pgAdmin  | A simple deployment for a [pgAdmin](https://www.pgadmin.org/) instance to work with PostgreSQL |
+| [pgAdmin](./pgadmin/)  | A simple deployment for a [pgAdmin](https://www.pgadmin.org/) instance to work with PostgreSQL |
 
 ## Contributing
 

@@ -1,0 +1,163 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: pgadmin-template
+  annotations:
+    openshift.io/display-name: "Management Tool for PostgreSQL (pgAdmin)"
+    openshift.io/provider-display-name: "k8s-crafts"
+    openshift.io/support-url: "https://github.com/orgs/k8s-crafts"
+    openshift.io/documentation-url: "https://www.pgadmin.org/"
+    openshift.io/long-description: |-
+      asdasd
+    description: |-
+      pgAdmin is a management tool for monitoring and maintaining PostgreSQL databases. For more information about its usage, visit https://www.pgadmin.org/.
+
+      Note: Since pgAdmin runs as root within the container, you must configure the ServiceAccount for the pgAdmin Pods to access the Security Context Constraint "anyuid". Use the following command: oc adm policy add-scc-to-user anyuid system:serviceaccount:<your-project>:<service-account>.
+    iconClass: "icon-postgresql"
+    tags: "database,postgresql"
+message: |-
+  The following properties can be used access the pgAdmin console:
+    Admin Email: ${ADMIN_EMAIL}
+    Admin Password: ${ADMIN_PASSWORD}
+    Console URL (cluster-wide): http://${SERVICE_NAME}:8080
+
+  Note: You can find the login credentials in the Secret ${{SECRET_NAME}}
+objects:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ${{DEPLOYMENT_NAME}}
+    spec:
+      selector:
+        matchLabels:
+          app: pgadmin
+      replicas: ${{REPLICAS}}
+      template:
+        metadata:
+          labels:
+            app: pgadmin
+        spec:
+          serviceAccountName: ${{SERVICE_ACCOUNT_NAME}}
+          containers:
+            - name: pgadmin
+              image: ${{IMAGE}}
+              imagePullPolicy: Always
+              env:
+                - name: PGADMIN_LISTEN_ADDRESS
+                  value: "0.0.0.0"
+                - name: PGADMIN_DEFAULT_EMAIL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${{SECRET_NAME}}
+                      key: ADMIN_EMAIL
+                - name: PGADMIN_DEFAULT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${{SECRET_NAME}}
+                      key: ADMIN_PASSWORD
+              ports:
+                - containerPort: 80
+              livenessProbe:
+                httpGet:
+                  path: /misc/ping
+                  port: 80
+                initialDelaySeconds: 30
+              resources:
+                requests:
+                  cpu: ${{CPU_REQUEST}}
+                  memory: ${{MEMORY_REQUEST}}
+                limits:
+                  cpu: ${{CPU_LIMIT}}
+                  memory: ${{MEMORY_LIMIT}}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${{SERVICE_NAME}}
+    spec:
+      type: ClusterIP
+      selector:
+        app: pgadmin
+      ports:
+        - port: ${{SERVICE_PORT}}
+          targetPort: 80
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: ${{ROUTE_NAME}}
+    spec:
+      port:
+        targetPort: 80
+      to:
+        kind: Service
+        name: ${{SERVICE_NAME}}
+      tls:
+        insecureEdgeTerminationPolicy: Redirect
+        termination: edge
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: ${{SECRET_NAME}}
+    stringData:
+      ADMIN_EMAIL: ${{ADMIN_EMAIL}}
+      ADMIN_PASSWORD: ${{ADMIN_PASSWORD}}
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: ${{SERVICE_ACCOUNT_NAME}}
+parameters:
+  - name: DEPLOYMENT_NAME
+    description: Name of the Deployment
+    required: true
+    value: pgadmin-deploy
+  - name: REPLICAS
+    description: Number of replicas for the Deployment
+    value: "1"
+    required: true
+  - name: IMAGE
+    description: Container image for pgAdmin
+    value: docker.io/dpage/pgadmin4:8
+    required: true
+  - name: ADMIN_EMAIL
+    description: Email of the admin user for authentication
+    value: admin@example.com
+    required: true
+  - name: ADMIN_PASSWORD
+    description: Password used for authentication
+    from: "[\\w\\A]{20}"
+    generate: expression
+  - name: CPU_REQUEST
+    description: CPU resource request
+    value: 100m
+  - name: CPU_LIMIT
+    description: CPU resource limit
+    value: 1000m
+  - name: MEMORY_REQUEST
+    description: Memory resource request
+    value: 100Mi
+  - name: MEMORY_LIMIT
+    description: Memory resource limit
+    value: 1024Mi
+  - name: SERVICE_NAME
+    description: Name of the Service
+    value: pgadmin-svc
+    required: true
+  - name: SERVICE_PORT
+    description: Exposed port on the Service
+    value: "8080"
+    required: true
+  - name: ROUTE_NAME
+    description: Name of the Route pointing to the Service
+    value: pgadmin-route
+    required: true
+  - name: SECRET_NAME
+    description: Name of the Secret containing admin credentials
+    value: pgadmin-credentials
+    required: true
+  - name: SERVICE_ACCOUNT_NAME
+    description: Name of the ServiceAccount for pgadmin Pods
+    value: pgadmin-sa
+    required: true
+labels:
+  template: pgadmin-template
+  app.kubernetes.io/name: "pgadmin"
+  app: pgadmin
