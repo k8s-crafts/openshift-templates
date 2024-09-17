@@ -7,8 +7,6 @@ metadata:
     openshift.io/provider-display-name: "k8s-crafts"
     openshift.io/support-url: "https://github.com/orgs/k8s-crafts"
     openshift.io/documentation-url: "https://www.pgadmin.org/"
-    openshift.io/long-description: |-
-      asdasd
     description: |-
       pgAdmin is a management tool for monitoring and maintaining PostgreSQL databases. For more information about its usage, visit https://www.pgadmin.org/.
 
@@ -19,7 +17,7 @@ message: |-
   The following properties can be used access the pgAdmin console:
     Admin Email: ${ADMIN_EMAIL}
     Admin Password: ${ADMIN_PASSWORD}
-    Console URL (cluster-wide): http://${SERVICE_NAME}:8080
+    Dashboard URL: "https://$(oc get routes/${ROUTE_NAME} -o=jsonpath='{.status.ingress[0].host}')"
 
   Note: You can find the login credentials in the Secret ${{SECRET_NAME}}
 objects:
@@ -27,6 +25,8 @@ objects:
     kind: Deployment
     metadata:
       name: ${{DEPLOYMENT_NAME}}
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
     spec:
       selector:
         matchLabels:
